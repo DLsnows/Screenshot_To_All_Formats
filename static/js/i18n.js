@@ -23,7 +23,7 @@ const i18n = (() => {
         /*  Navigation                                                     */
         /* ============================================================== */
 
-        brandTitle:          { en: "Img2Text",         zh: "图片转文本" },
+        brandTitle:          { en: "Screenshot_To_All_Formats", zh: "Screenshot_To_All_Formats" },
         navHome:             { en: "Home",             zh: "首页" },
         navSettings:         { en: "Settings",         zh: "设置" },
         langSwitch:          { en: "中文",              zh: "EN" },
@@ -269,7 +269,7 @@ const i18n = (() => {
 
     return {
         /** Current active language code ("en" | "zh"). */
-        currentLang,
+        get currentLang() { return currentLang; },
 
         /** All translation keys (for debugging / inspection). */
         keys: TRANSLATIONS,
