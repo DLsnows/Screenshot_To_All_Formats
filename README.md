@@ -141,15 +141,7 @@ Screenshot_To_All_Formats/
 
 ### 支持的模型服务商
 
-设置 `base_url` 和 `api_key` 即可接入任意兼容 OpenAI API 的服务：
-
-| 服务商 | Base URL | 推荐模型 |
-|--------|----------|----------|
-| OpenAI | `https://api.openai.com/v1` | `gpt-4o`, `gpt-4o-mini` |
-| Anthropic | `https://api.anthropic.com/v1` | `claude-sonnet-4-6`, `claude-3-5-sonnet` |
-| 阿里通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-vl-max` |
-| 百度千帆 | 需兼容代理 | `ERNIE-Bot` |
-| 本地模型 (vLLM) | `http://localhost:8000/v1` | `llava` 等 |
+设置 `base_url` 和 `api_key` 即可接入任意兼容 OpenAI API 的服务
 
 ## API Endpoints
 
