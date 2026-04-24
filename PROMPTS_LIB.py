@@ -1,5 +1,5 @@
 class PROMPTS_LIBRARY:
-    def _init_(self):
+    def __init__(self):
         self.prompt_text_manager = prompts_manager("text")
         self.prompt_markdown_manager = prompts_manager("markdown")
         self.prompt_html_manager = prompts_manager("html")
@@ -31,7 +31,7 @@ class PROMPTS_LIBRARY:
 
 class prompts_manager:
 
-    def _init_(self,format:str):
+    def __init__(self,format:str):
         self.promptMap = {}
         self.format = format
     def update_lang(self,lang:str,prompt:str):

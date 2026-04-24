@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="brandTitle">Img2Text</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- ============================================================ -->
+    <!-- Navigation Bar                                                -->
+    <!-- ============================================================ -->
+
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <span class="brand-icon">&#x1F4C4;</span>
+            <span data-i18n="brandTitle">Img2Text</span>
+        </div>
+        <div class="navbar-links">
+            <a href="#main" class="active" data-i18n="navHome">Home</a>
+            <a href="#settings" data-i18n="navSettings">Settings</a>
+        </div>
+        <div class="navbar-right">
+            <button class="lang-toggle" data-i18n="langSwitch">&#x4E2D;&#x6587;</button>
+        </div>
+    </nav>
+
+    <!-- ============================================================ -->
+    <!-- Main View                                                     -->
+    <!-- ============================================================ -->
+
+    <div id="main-view" class="view active">
+
+        <!-- Conversion form -->
+        <div class="card">
+            <div class="card-title" data-i18n="pageTitle">Image to Text Converter</div>
+
+            <div class="form-group">
+                <label data-i18n="inputPathLabel">Input Path</label>
+                <div class="flex flex-gap">
+                    <input type="text" id="input-path" style="flex:1"
+                           data-i18n-placeholder="inputPathPlaceholder"
+                           placeholder="Folder containing images&hellip;">
+                    <button class="btn btn-ghost btn-sm" id="browse-input-btn" type="button" title="Select folder" disabled>&#x1F4C1;</button>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label data-i18n="outputPathLabel">Output Path</label>
+                    <input type="text" id="output-path"
+                           data-i18n-placeholder="outputPathPlaceholder"
+                           placeholder="Where to save results&hellip;">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label data-i18n="languageLabel">Content Language</label>
+                    <select id="content-language">
+                        <option value="cn" data-i18n-option="langCn">Chinese</option>
+                        <option value="en" data-i18n-option="langEn">English</option>
+                        <option value="fr" data-i18n-option="langFr">French</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="formatLabel">Output Format</label>
+                    <select id="output-format">
+                        <option value="markdown" data-i18n-option="formatMarkdown">Markdown</option>
+                        <option value="html"     data-i18n-option="formatHtml">HTML</option>
+                        <option value="csv"      data-i18n-option="formatCsv">CSV</option>
+                        <option value="json"     data-i18n-option="formatJson">JSON</option>
+                        <option value="latex"    data-i18n-option="formatLatex">LaTeX</option>
+                        <option value="text"     data-i18n-option="formatText">Plain Text</option>
+                        <option value="code"     data-i18n-option="formatCode">Code</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="checkbox-group mb-2">
+                <input type="checkbox" id="copy-clipboard" checked>
+                <label for="copy-clipboard" data-i18n="copyClipboardLabel">Copy result to clipboard</label>
+            </div>
+
+            <button class="btn btn-primary btn-block" id="start-btn" data-i18n="startBtn">Start Conversion</button>
+
+            <!-- Upload area (collapsible hint) -->
+            <details class="mt-2" style="cursor:pointer;">
+                <summary class="text-sm text-muted" data-i18n="uploadBtn">Upload &amp; Convert</summary>
+                <div class="mt-1 upload-zone" id="upload-zone"
+                     style="border:2px dashed #2a3a5c;border-radius:8px;padding:1.5rem;text-align:center;margin-top:0.5rem;">
+                    <p class="text-sm text-muted" data-i18n="uploadDropHint">Drop images here or click to upload</p>
+                    <p class="text-sm text-muted mt-1" data-i18n="uploadLimitHint">Supported: PNG, JPG, WEBP, BMP, GIF</p>
+                    <input type="file" id="file-input" multiple accept="image/png,image/jpeg,image/webp,image/bmp,image/gif"
+                           style="display:none;">
+                    <button class="btn btn-ghost btn-sm mt-1" id="upload-btn" type="button" data-i18n="uploadBtn">Upload &amp; Convert</button>
+                </div>
+            </details>
+        </div>
+
+        <!-- Progress / Result card (hidden initially) -->
+        <div class="card" id="progress-card" style="display:none;">
+            <div class="flex-between">
+                <span class="card-title" id="progress-title" data-i18n="taskStatusRunning">Running</span>
+                <span class="status-badge status-running" id="status-badge" data-i18n="taskStatusRunning">Running</span>
+            </div>
+
+            <div class="progress-container">
+                <div class="progress-bar-track">
+                    <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progress-label" data-i18n="progressText">0 / 0 images</span>
+                    <span id="progress-pct" data-i18n="progressPercent">0%</span>
+                </div>
+                <div class="progress-status text-muted" id="progress-status"></div>
+            </div>
+
+            <!-- Result preview -->
+            <div class="result-preview" id="result-preview">
+                <div class="result-preview-header">
+                    <h3 data-i18n="resultPreviewTitle">Result Preview</h3>
+                    <div class="btn-group" style="margin:0">
+                        <button class="btn btn-sm btn-primary" id="copy-result-btn" data-i18n="copyResultBtn">Copy to Clipboard</button>
+                        <button class="btn btn-sm btn-secondary" id="download-btn" data-i18n="downloadBtn">Download</button>
+                    </div>
+                </div>
+                <div class="result-preview-content" id="result-content"></div>
+            </div>
+        </div>
+
+        <!-- Task history -->
+        <div class="card">
+            <div class="flex-between">
+                <span class="card-title" data-i18n="pageTitle">Task History</span>
+            </div>
+            <div id="task-list-container">
+                <div class="empty-state" id="task-empty">
+                    <div class="empty-icon">&#x1F4CB;</div>
+                    <p data-i18n="noTasks">No conversion tasks yet.</p>
+                    <p class="text-sm text-muted mt-1" data-i18n="noTasksHint">Select images and click start above.</p>
+                </div>
+                <table class="task-table" id="task-table" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th data-i18n="progressText">Images</th>
+                            <th data-i18n="taskStatusPending">Status</th>
+                            <th data-i18n="formatLabel">Format</th>
+                            <th data-i18n="taskCreated">Created</th>
+                            <th data-i18n="taskElapsed">Elapsed</th>
+                            <th data-i18n="taskActions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="task-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- Settings View                                                 -->
+    <!-- ============================================================ -->
+
+    <div id="settings-view" class="view">
+
+        <div class="card">
+            <div class="card-title" data-i18n="settingsTitle">Settings</div>
+            <div id="settings-alert"></div>
+
+            <!-- Default Paths -->
+            <div class="card-subtitle" data-i18n="sectionPaths">Default Paths</div>
+            <div class="form-group">
+                <label data-i18n="defaultInputPathLabel">Default Input Path</label>
+                <input type="text" id="settings-default-input-path"
+                       data-i18n-placeholder="inputPathPlaceholder">
+            </div>
+            <div class="form-group">
+                <label data-i18n="defaultOutputPathLabel">Default Output Path</label>
+                <input type="text" id="settings-default-output-path"
+                       data-i18n-placeholder="outputPathPlaceholder">
+            </div>
+            <div class="form-group">
+                <label data-i18n="languageLabel">Content Language</label>
+                <select id="settings-default-language">
+                    <option value="cn" data-i18n-option="langCn">Chinese</option>
+                    <option value="en" data-i18n-option="langEn">English</option>
+                    <option value="fr" data-i18n-option="langFr">French</option>
+                </select>
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- Model Configuration -->
+            <div class="card-subtitle" data-i18n="sectionModel">Model Configuration</div>
+            <div class="form-group">
+                <label data-i18n="apiBaseUrlLabel">API Base URL</label>
+                <input type="text" id="settings-api-base-url"
+                       data-i18n-placeholder="apiBaseUrlPlaceholder"
+                       placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="form-group">
+                <label data-i18n="apiKeyLabel">API Key</label>
+                <input type="password" id="settings-api-key"
+                       data-i18n-placeholder="apiKeyPlaceholder"
+                       placeholder="sk-&hellip;">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label data-i18n="modelNameLabel">Model Name</label>
+                    <input type="text" id="settings-model-name"
+                           data-i18n-placeholder="modelNamePlaceholder"
+                           placeholder="gpt-4o">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="maxTokensLabel">Max Tokens</label>
+                    <input type="number" id="settings-max-tokens" min="1024" max="200000" step="1000" value="30000">
+                </div>
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- Display Settings -->
+            <div class="card-subtitle" data-i18n="sectionUi">Display Settings</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label data-i18n="uiLanguageLabel">UI Language</label>
+                    <select id="settings-ui-language">
+                        <option value="en" data-i18n-option="uiLangEn">English</option>
+                        <option value="zh" data-i18n-option="uiLangZh">Chinese</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="defaultFormatLabel">Default Format</label>
+                    <select id="settings-default-format">
+                        <option value="markdown" data-i18n-option="formatMarkdown">Markdown</option>
+                        <option value="html"     data-i18n-option="formatHtml">HTML</option>
+                        <option value="csv"      data-i18n-option="formatCsv">CSV</option>
+                        <option value="json"     data-i18n-option="formatJson">JSON</option>
+                        <option value="latex"    data-i18n-option="formatLatex">LaTeX</option>
+                        <option value="text"     data-i18n-option="formatText">Plain Text</option>
+                        <option value="code"     data-i18n-option="formatCode">Code</option>
+                    </select>
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="settings-copy-clipboard">
+                <label for="settings-copy-clipboard" data-i18n="copyClipboardLabel">Copy result to clipboard</label>
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- Hotkey Settings -->
+            <div class="card-subtitle" data-i18n="sectionHotkey">Hotkey Settings</div>
+            <div class="checkbox-group mb-1">
+                <input type="checkbox" id="settings-hotkey-enabled">
+                <label for="settings-hotkey-enabled" data-i18n="hotkeyEnableLabel">Enable Global Hotkey</label>
+            </div>
+            <div class="form-group">
+                <label data-i18n="hotkeyComboLabel">Shortcut Key</label>
+                <div class="hotkey-recorder">
+                    <input type="text" id="settings-hotkey-combo" readonly
+                           data-i18n-placeholder="hotkeyPlaceholder"
+                           placeholder="Click to record&hellip;">
+                    <button class="btn btn-ghost btn-sm" id="hotkey-record-btn"
+                            data-i18n="hotkeyRecordBtn">Record</button>
+                    <button class="btn btn-ghost btn-sm" id="hotkey-clear-btn"
+                            data-i18n="hotkeyClearBtn">Clear</button>
+                </div>
+                <span class="text-sm text-muted mt-1" id="hotkey-hint"
+                      data-i18n="hotkeyHint" style="display:block;margin-top:0.3rem;">
+                    Press your desired key combination
+                </span>
+            </div>
+
+            <hr class="section-divider">
+
+            <!-- Save / Reset -->
+            <div class="btn-group">
+                <button class="btn btn-primary" id="save-settings-btn"
+                        data-i18n="saveSettingsBtn">Save Settings</button>
+                <button class="btn btn-ghost" id="reset-settings-btn"
+                        data-i18n="resetSettingsBtn">Reset to Defaults</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- Scripts                                                      -->
+    <!-- ============================================================ -->
+
+    <script src="js/api.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

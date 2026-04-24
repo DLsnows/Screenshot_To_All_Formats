@@ -1,4 +1,4 @@
-from PROMPTS_LIB import prompts_library
+from Screenshot_To_All_Formats.PROMPTS_LIB import prompts_library
 prompts_markdown_cn = r'''
 你是一个专业的OCR文字识别模型。请仔细分析所提供的图像内容，将其中可见的文字准确提取出来，并以规范的Markdown格式输出。
 

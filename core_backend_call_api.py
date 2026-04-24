@@ -4,10 +4,10 @@ import pyperclip
 import base64
 import os
 from concurrent.futures import ThreadPoolExecutor
-from PROMPTS_LIB import prompts_library
-import prompt_setting
+from Screenshot_To_All_Formats.PROMPTS_LIB import prompts_library
+import Screenshot_To_All_Formats.prompt_setting as prompt_setting
 
-def ocr(client,imagePath:str,api:str,url:str,model:str,prompt:str,max_token):
+def ocr(client,imagePath:str,model:str,prompt:str,max_token):
     ext = Path(imagePath).suffix.lower()
     mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}
     mime_type = mime_map.get(ext, 'image/png')  # 默认 PNG
@@ -57,7 +57,7 @@ def call_api_for_ocr(copy_to_clipboard: bool, input_image_path: str, language: s
     def process_image(image_name: str) -> str:
         image_path = os.path.join(input_image_path, image_name)
         # 调用 OCR
-        return ocr(client, image_path, api, url, model, prompt, max_token)
+        return ocr(client, image_path, model, prompt, max_token)
 
     # 并发处理所有图片，保持顺序
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
