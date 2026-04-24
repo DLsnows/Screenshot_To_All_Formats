@@ -85,11 +85,17 @@
 
             <button class="btn btn-primary btn-block" id="start-btn" data-i18n="startBtn">Start Conversion</button>
 
+            <div class="flex flex-gap mt-1" style="justify-content:center;">
+                <button class="btn btn-ghost" id="clipboard-paste-btn" type="button">
+                    <span data-i18n="clipboardPasteBtn">Paste from Clipboard</span>
+                </button>
+            </div>
+
             <!-- Upload area (collapsible hint) -->
             <details class="mt-2" style="cursor:pointer;">
                 <summary class="text-sm text-muted" data-i18n="uploadBtn">Upload &amp; Convert</summary>
                 <div class="mt-1 upload-zone" id="upload-zone"
-                     style="border:2px dashed #2a3a5c;border-radius:8px;padding:1.5rem;text-align:center;margin-top:0.5rem;">
+                     style="border:2px dashed #333333;border-radius:8px;padding:1.5rem;text-align:center;margin-top:0.5rem;">
                     <p class="text-sm text-muted" data-i18n="uploadDropHint">Drop images here or click to upload</p>
                     <p class="text-sm text-muted mt-1" data-i18n="uploadLimitHint">Supported: PNG, JPG, WEBP, BMP, GIF</p>
                     <input type="file" id="file-input" multiple accept="image/png,image/jpeg,image/webp,image/bmp,image/gif"
@@ -122,8 +128,7 @@
                 <div class="result-preview-header">
                     <h3 data-i18n="resultPreviewTitle">Result Preview</h3>
                     <div class="btn-group" style="margin:0">
-                        <button class="btn btn-sm btn-primary" id="copy-result-btn" data-i18n="copyResultBtn">Copy to Clipboard</button>
-                        <button class="btn btn-sm btn-secondary" id="download-btn" data-i18n="downloadBtn">Download</button>
+                        <button class="btn btn-primary" id="copy-result-btn" data-i18n="copyResultBtn">Copy to Clipboard</button>
                     </div>
                 </div>
                 <div class="result-preview-content" id="result-content"></div>
@@ -133,7 +138,7 @@
         <!-- Task history -->
         <div class="card">
             <div class="flex-between">
-                <span class="card-title" data-i18n="pageTitle">Task History</span>
+                <span class="card-title" data-i18n="taskHistory">History</span>
             </div>
             <div id="task-list-container">
                 <div class="empty-state" id="task-empty">
@@ -270,6 +275,10 @@
                 <span class="text-sm text-muted mt-1" id="hotkey-hint"
                       data-i18n="hotkeyHint" style="display:block;margin-top:0.3rem;">
                     Press your desired key combination
+                </span>
+                <span class="text-sm mt-1" id="hotkey-status-indicator"
+                      style="display:none;margin-top:0.3rem;">
+                    <span class="status-badge" id="hotkey-status-badge"></span>
                 </span>
             </div>
 

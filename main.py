@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
 
     # Conditionally start hotkey listener
     hotkey_listener = None
+    app.state.hotkey_listener = None
     try:
         cfg = settings_manager.load()
         if cfg.get("hotkey", {}).get("enabled", False):

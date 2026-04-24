@@ -57,11 +57,17 @@ const i18n = (() => {
 
         startBtn:            { en: "Start Conversion", zh: "开始转换" },
         startBtnRunning:     { en: "Converting…",      zh: "转换中…" },
+        conversionInProgress:{ en: "A conversion is already in progress", zh: "已有任务正在转换中" },
 
         uploadBtn:           { en: "Upload & Convert", zh: "上传并转换" },
         uploadBtnRunning:    { en: "Uploading…",       zh: "上传中…" },
         uploadDropHint:     { en: "Drop images here or click to upload", zh: "拖拽图片到此处或点击上传" },
         uploadLimitHint:    { en: "Supported: PNG, JPG, WEBP, BMP, GIF", zh: "支持格式：PNG、JPG、WEBP、BMP、GIF" },
+
+        clipboardPasteBtn:   { en: "Paste from Clipboard", zh: "从剪贴板粘贴" },
+        clipboardPasteSuccess:{en: "Clipboard image captured!", zh: "剪贴板图片已捕获！" },
+        clipboardPasteEmpty: { en: "Clipboard contains no image", zh: "剪贴板中没有图片" },
+        clickTooFast:        { en: "Please wait a moment before pasting again", zh: "请稍后再粘贴" },
 
         /* ============================================================== */
         /*  Task Progress & Status                                         */
@@ -87,6 +93,7 @@ const i18n = (() => {
         taskActions:         { en: "Actions",           zh: "操作" },
         taskDeleteBtn:      { en: "Delete",            zh: "删除" },
 
+        taskHistory:         { en: "History",           zh: "历史记录" },
         noTasks:             { en: "No conversion tasks yet.", zh: "暂无转换任务。" },
         noTasksHint:         { en: "Select images and click start above.", zh: "请选择图片后点击上方的开始转换。" },
 
@@ -128,6 +135,8 @@ const i18n = (() => {
         hotkeyRecordBtn:     { en: "Record",           zh: "录制" },
         hotkeyClearBtn:      { en: "Clear",            zh: "清除" },
         hotkeyHint:          { en: "Press your desired key combination", zh: "按下您想要设置的快捷键组合" },
+        hotkeyRunning:       { en: "Hotkey listener is running", zh: "快捷键监听器运行中" },
+        hotkeyStopped:       { en: "Hotkey listener is stopped", zh: "快捷键监听器已停止" },
 
         saveSettingsBtn:     { en: "Save Settings",    zh: "保存设置" },
         savingSettingsBtn:   { en: "Saving…",          zh: "保存中…" },

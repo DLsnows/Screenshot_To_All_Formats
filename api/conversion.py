@@ -1,6 +1,8 @@
 import os
+import shutil
 import asyncio
 import logging
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -153,8 +155,22 @@ def _run_ocr_worker(
 ) -> None:
     """Run OCR in a background thread, updating task state as it goes."""
     try:
+        # Create a subfolder to stash successfully processed images so they
+        # don't get picked up by future conversions of the same directory.
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        processed_dir = os.path.join(req.input_path, f"_processed_{ts}")
+        os.makedirs(processed_dir, exist_ok=True)
+
         def on_progress(completed: int, total: int):
             tm.update_progress(task_id, completed)
+
+        def on_image_done(img_path: str):
+            """Move a successfully processed image into the processed folder."""
+            dest = os.path.join(processed_dir, os.path.basename(img_path))
+            try:
+                shutil.move(img_path, dest)
+            except OSError:
+                pass  # best-effort
 
         results, combined = process_all_images(
             input_path=req.input_path,
@@ -163,6 +179,7 @@ def _run_ocr_worker(
             format=req.format.value,
             model_config=req.model.model_dump(),
             progress_callback=on_progress,
+            on_image_done=on_image_done,
         )
 
         tm.complete_task(task_id, results, combined)

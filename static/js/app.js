@@ -11,6 +11,7 @@ const app = (() => {
 
     let currentTaskId = null;
     let pollInterval = null;
+    let taskListInterval = null;
     let settingsCache = null;
 
     /* ------------------------------------------------------------------ */
@@ -70,9 +71,31 @@ const app = (() => {
             $("#settings-hotkey-combo").value = friendlyCombo(combo);
             $("#settings-hotkey-combo").dataset.combo = combo;
 
+            // Check hotkey listener status
+            await refreshHotkeyStatus();
+
             showSettingsAlert("settingsLoaded", "success");
         } catch (err) {
             showSettingsAlert("settingsLoadFailed", "error", { error: err.message });
+        }
+    }
+
+    async function refreshHotkeyStatus() {
+        try {
+            const status = await api.json("/hotkey/status");
+            const indicator = $("#hotkey-status-indicator");
+            const badge = $("#hotkey-status-badge");
+            if (status.running) {
+                indicator.style.display = "block";
+                badge.className = "status-badge status-completed";
+                badge.textContent = i18n.translate("hotkeyRunning");
+            } else {
+                indicator.style.display = "block";
+                badge.className = "status-badge status-pending";
+                badge.textContent = i18n.translate("hotkeyStopped");
+            }
+        } catch (_) {
+            // ignore
         }
     }
 
@@ -108,6 +131,19 @@ const app = (() => {
         setTimeout(() => { el.innerHTML = ""; }, 4000);
     }
 
+    function showToast(message) {
+        const el = document.createElement("div");
+        el.className = "alert alert-success";
+        el.textContent = message;
+        el.style.position = "fixed";
+        el.style.bottom = "20px";
+        el.style.right = "20px";
+        el.style.zIndex = "9999";
+        el.style.maxWidth = "400px";
+        document.body.appendChild(el);
+        setTimeout(() => { el.remove(); }, 3000);
+    }
+
     async function saveSettings() {
         const btn = $("#save-settings-btn");
         const originalText = btn.textContent;
@@ -126,6 +162,9 @@ const app = (() => {
             }
 
             showSettingsAlert("settingsSaved", "success");
+
+            // Refresh hotkey status after save (may have changed)
+            await refreshHotkeyStatus();
         } catch (err) {
             showSettingsAlert("settingsSaveFailed", "error", { error: err.message });
         } finally {
@@ -185,6 +224,12 @@ const app = (() => {
     }
 
     async function startConversion() {
+        // Prevent concurrent conversions
+        if (pollInterval) {
+            showToast(i18n.translate("conversionInProgress"));
+            return;
+        }
+
         // Validate first
         let params;
         try {
@@ -210,6 +255,39 @@ const app = (() => {
             btn.disabled = false;
             btn.textContent = i18n.translate("startBtn");
             showError(i18n.translate("errorConvertFailed", { error: err.message }));
+        }
+    }
+
+    let _lastPasteTime = 0;
+
+    async function clipboardPaste() {
+        const now = Date.now();
+        if (now - _lastPasteTime < 2000) return;
+        _lastPasteTime = now;
+
+        const btn = $("#clipboard-paste-btn");
+        btn.disabled = true;
+        try {
+            const result = await api.captureClipboard();
+            if (result.error === "clipboard_empty") {
+                showToast(i18n.translate("clipboardPasteEmpty"));
+                return;
+            }
+            if (result.error) {
+                showToast("Clipboard error: " + result.error);
+                return;
+            }
+            // Fill input path (must be a directory — the conversion endpoint
+            // scans the directory for all supported images)
+            $("#input-path").value = result.path;
+            showToast(
+                i18n.translate("clipboardPasteSuccess") +
+                " (" + result.filename + ")",
+            );
+        } catch (err) {
+            showToast("Clipboard error: " + err.message);
+        } finally {
+            btn.disabled = false;
         }
     }
 
@@ -292,12 +370,7 @@ const app = (() => {
             const content = task.combined_result || task.results.join("\n\n---\n\n");
             $("#result-content").textContent = content;
 
-            // Wire up download link
-            $("#download-btn").onclick = () => {
-                api.downloadResult(task.id);
-            };
-
-            // Wire up copy button
+	        // Wire up copy button
             $("#copy-result-btn").onclick = () => {
                 navigator.clipboard.writeText(content).then(() => {
                     const btn = $("#copy-result-btn");
@@ -374,6 +447,27 @@ const app = (() => {
             empty.style.display = "none";
             table.style.display = "";
             tbody.innerHTML = tasks.map(t => renderTaskRow(t)).join("");
+
+            // Auto-track hotkey-triggered tasks: catch both running tasks
+            // (for live progress) and recently-completed tasks (that finished
+            // before the 5 s polling interval caught up with them).
+            if (!pollInterval && tasks.length > 0) {
+                const now_ts = Date.now() / 1000;
+                const latest = tasks[0];
+                if (latest.id !== currentTaskId) {
+                    const age = now_ts - latest.created_at;
+                    if (latest.status === "running") {
+                        currentTaskId = latest.id;
+                        showProgressCard();
+                        startPolling(latest.id);
+                    } else if (latest.status === "completed" && age < 10) {
+                        currentTaskId = latest.id;
+                        showProgressCard();
+                        updateProgressUI(latest);
+                        onTaskFinished(latest);
+                    }
+                }
+            }
         } catch (err) {
             console.warn("Failed to load task list:", err);
         }
@@ -387,13 +481,7 @@ const app = (() => {
         const elapsedStr = formatElapsed(task.elapsed);
         const createdStr = formatTimestamp(task.created_at);
 
-        let actions = `<button class="btn btn-ghost btn-sm task-detail-btn" data-task-id="${task.id}" data-i18n="viewDetailBtn">Details</button>`;
-
-        if (task.status === "completed") {
-            actions += `<button class="btn btn-sm btn-secondary task-download-btn" data-task-id="${task.id}" data-i18n="downloadBtn">Download</button>`;
-        }
-
-        actions += `<button class="btn btn-ghost btn-sm task-delete-btn" data-task-id="${task.id}" data-i18n="taskDeleteBtn">Delete</button>`;
+        let actions = `<button class="btn btn-ghost btn-sm task-delete-btn" data-task-id="${task.id}" data-i18n="taskDeleteBtn">Delete</button>`;
 
         return `<tr>
             <td>${task.progress}/${task.total}</td>
@@ -416,6 +504,7 @@ const app = (() => {
         comboInput: null,
         recordBtn: null,
         hintEl: null,
+        finalizeTimer: null,
 
         init() {
             this.comboInput = $("#settings-hotkey-combo");
@@ -423,17 +512,20 @@ const app = (() => {
             this.hintEl = $("#hotkey-hint");
             const clearBtn = $("#hotkey-clear-btn");
 
-            this.recordBtn.addEventListener("click", () => this.start());
+            this.recordBtn.addEventListener("click", () => this.toggle());
             clearBtn.addEventListener("click", () => this.clear());
 
             // Global keyboard capture
             document.addEventListener("keydown", (e) => this.onKeyDown(e));
             document.addEventListener("keyup", (e) => this.onKeyUp(e));
+        },
 
-            // Stop on blur
-            this.comboInput.addEventListener("blur", () => {
-                if (this.active) this.cancel();
-            });
+        toggle() {
+            if (this.active) {
+                this.cancel();
+            } else {
+                this.start();
+            }
         },
 
         start() {
@@ -444,6 +536,8 @@ const app = (() => {
             this.comboInput.value = i18n.translate("hotkeyRecording");
             this.comboInput.classList.add("recording");
             this.recordBtn.textContent = i18n.translate("cancel");
+            // Give focus to input so blur can cancel
+            this.comboInput.focus();
         },
 
         cancel() {
@@ -452,6 +546,10 @@ const app = (() => {
             this.mainKey = null;
             this.comboInput.classList.remove("recording");
             this.recordBtn.textContent = i18n.translate("hotkeyRecordBtn");
+            if (this.finalizeTimer) {
+                clearTimeout(this.finalizeTimer);
+                this.finalizeTimer = null;
+            }
 
             // Restore existing combo display
             const existing = this.comboInput.dataset.combo;
@@ -466,6 +564,19 @@ const app = (() => {
             this.cancel();
             delete this.comboInput.dataset.combo;
             this.comboInput.value = "";
+        },
+
+        /**
+         * Read modifier state from the event's built-in flags.
+         * This is far more reliable than tracking keydown/keyup for
+         * modifier keys individually.
+         */
+        readModifiersFromEvent(e) {
+            this.pressedMods.clear();
+            if (e.ctrlKey)  this.pressedMods.add("ctrl");
+            if (e.altKey)   this.pressedMods.add("alt");
+            if (e.shiftKey) this.pressedMods.add("shift");
+            if (e.metaKey)  this.pressedMods.add("win");
         },
 
         onKeyDown(e) {
@@ -483,26 +594,40 @@ const app = (() => {
 
             e.preventDefault();
 
-            if (this.isModifier(key)) {
-                this.pressedMods.add(key);
-            } else {
+            // Read modifier state from the event itself (always accurate)
+            this.readModifiersFromEvent(e);
+
+            // Track the main key (last non-modifier key wins)
+            if (!this.isModifier(key)) {
                 this.mainKey = key;
             }
 
-            // Show current combo
+            // Show current combo in real time
             this.comboInput.value = this.buildFriendly();
+
+            // Safety timeout: if keyup events don't fire (e.g. user
+            // switches focus while holding keys), finalize after 1 s
+            if (this.mainKey && !this.finalizeTimer) {
+                this.finalizeTimer = setTimeout(() => {
+                    if (this.active && this.mainKey) {
+                        this.finalize();
+                    }
+                }, 1000);
+            }
         },
 
         onKeyUp(e) {
             if (!this.active) return;
 
-            const key = this.normalizeKey(e);
-            if (!key) return;
-
-            this.pressedMods.delete(key);
+            // Read modifier state from the event
+            this.readModifiersFromEvent(e);
 
             // If no modifiers held and we have a main key → finalize
-            if (this.pressedMods.size === 0 && this.mainKey) {
+            if (!e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && this.mainKey) {
+                if (this.finalizeTimer) {
+                    clearTimeout(this.finalizeTimer);
+                    this.finalizeTimer = null;
+                }
                 this.finalize();
             }
         },
@@ -514,6 +639,10 @@ const app = (() => {
             this.comboInput.classList.remove("recording");
             this.active = false;
             this.recordBtn.textContent = i18n.translate("hotkeyRecordBtn");
+            if (this.finalizeTimer) {
+                clearTimeout(this.finalizeTimer);
+                this.finalizeTimer = null;
+            }
         },
 
         normalizeKey(e) {
@@ -630,14 +759,14 @@ const app = (() => {
         const zone = $("#upload-zone");
         zone.addEventListener("dragover", (e) => {
             e.preventDefault();
-            zone.style.borderColor = "#e94560";
+            zone.style.borderColor = "#22c55e";
         });
         zone.addEventListener("dragleave", () => {
-            zone.style.borderColor = "#2a3a5c";
+            zone.style.borderColor = "#333333";
         });
         zone.addEventListener("drop", (e) => {
             e.preventDefault();
-            zone.style.borderColor = "#2a3a5c";
+            zone.style.borderColor = "#333333";
             handleUpload(e.dataTransfer.files);
         });
 
@@ -675,24 +804,6 @@ const app = (() => {
             const taskId = btn.dataset.taskId;
             if (!taskId) return;
 
-            if (btn.classList.contains("task-detail-btn")) {
-                // Scroll to progress card and show this task
-                currentTaskId = taskId;
-                showProgressCard();
-                try {
-                    const task = await api.getTaskStatus(taskId);
-                    updateProgressUI(task);
-                    if (task.status === "completed") {
-                        onTaskFinished(task);
-                    }
-                } catch (_) { /* ignore */ }
-                $("#progress-card").scrollIntoView({ behavior: "smooth" });
-            }
-
-            if (btn.classList.contains("task-download-btn")) {
-                api.downloadResult(taskId);
-            }
-
             if (btn.classList.contains("task-delete-btn")) {
                 try {
                     await api.deleteTask(taskId);
@@ -702,6 +813,9 @@ const app = (() => {
                 }
             }
         });
+
+        // Clipboard paste button
+        $("#clipboard-paste-btn").addEventListener("click", clipboardPaste);
 
         // Keyboard shortcut: Enter to start conversion on main view
         document.addEventListener("keydown", (e) => {
@@ -741,6 +855,9 @@ const app = (() => {
 
         // Load task list
         await loadTaskList();
+
+        // Periodically refresh task list (picks up hotkey-triggered tasks)
+        taskListInterval = setInterval(() => loadTaskList(), 5000);
     }
 
     /* ------------------------------------------------------------------ */

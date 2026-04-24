@@ -79,6 +79,7 @@ def process_all_images(
     format: str,
     model_config: dict,
     progress_callback: Callable[[int, int], None] | None = None,
+    on_image_done: Callable[[str], None] | None = None,
     max_workers: int = 50,
 ) -> tuple[list[str], str]:
     """Process every supported image in *input_path* concurrently.
@@ -98,6 +99,10 @@ def process_all_images(
     progress_callback:
         Optional two-arg callable ``fn(completed, total)`` invoked each time
         an image finishes (success or error).
+    on_image_done:
+        Optional one-arg callable ``fn(image_path)`` invoked after each
+        successful image OCR (not called on errors).  Useful for moving
+        processed files out of the watched directory.
     max_workers:
         Maximum concurrent API calls (default 50).
 
@@ -167,6 +172,13 @@ def process_all_images(
             if progress_callback:
                 completed = sum(1 for r in results if r is not None)
                 progress_callback(completed, total)
+
+            # Move successful results to processed folder
+            if on_image_done and not content.startswith("[OCR ERROR:"):
+                try:
+                    on_image_done(os.path.join(input_path, fname))
+                except Exception:
+                    pass
 
     # ---- write combined file ----
     combined = "\n\n\n".join(results)

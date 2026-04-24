@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 import logging
 import threading
@@ -11,6 +12,33 @@ from Screenshot_To_All_Formats.services.ocr_engine import process_all_images
 from Screenshot_To_All_Formats.services.task_manager import TaskManager, TaskStatus
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Hotkey event log (polled by frontend for debugging)
+# ---------------------------------------------------------------------------
+
+_hotkey_events: list[dict] = []
+_hotkey_events_lock = threading.Lock()
+
+
+def _add_hotkey_event(message: str) -> None:
+    """Record a hotkey event for frontend polling."""
+    with _hotkey_events_lock:
+        _hotkey_events.append({
+            "time": datetime.now().isoformat(),
+            "message": message,
+        })
+        if len(_hotkey_events) > 20:
+            _hotkey_events[:] = _hotkey_events[-20:]
+
+
+def get_recent_events(since: str | None = None) -> list[dict]:
+    """Return events after *since* timestamp (ISO format)."""
+    with _hotkey_events_lock:
+        if not since:
+            return list(_hotkey_events)
+        return [e for e in _hotkey_events if e["time"] > since]
+
 
 # ---------------------------------------------------------------------------
 # Normalised key identifiers (lowecase, no decoration)
@@ -35,6 +63,16 @@ def _normalise(key):
         return str(key)
 
 
+def _to_canonical(key_name: str) -> str:
+    """Map a raw key name (e.g. 'ctrl_l', 'shift_r') to its canonical form
+    (e.g. 'ctrl', 'shift') using _MODIFIER_MAP.  Non-modifier keys pass
+    through unchanged."""
+    for canon, aliases in _MODIFIER_MAP.items():
+        if key_name in aliases:
+            return canon
+    return key_name
+
+
 # ---------------------------------------------------------------------------
 # Hotkey listener
 # ---------------------------------------------------------------------------
@@ -54,7 +92,9 @@ class HotkeyListener:
         self._pressed: set[str] = set()
         self._lock = threading.Lock()
         self._last_trigger = 0.0
-        self._cooldown = 1.0  # seconds
+        self._cooldown = 2.0  # seconds
+        self._busy = False
+        self._busy_lock = threading.Lock()
 
         # Parse initial combo from settings
         self._mods: set[str] = set()
@@ -120,12 +160,14 @@ class HotkeyListener:
 
     def _on_press(self, key):
         nk = _normalise(key)
+        nk = _to_canonical(nk)
         with self._lock:
             self._pressed.add(nk)
             self._try_trigger()
 
     def _on_release(self, key):
         nk = _normalise(key)
+        nk = _to_canonical(nk)
         with self._lock:
             self._pressed.discard(nk)
 
@@ -152,16 +194,27 @@ class HotkeyListener:
 
     def _execute(self):
         """Grab clipboard image, save it, and start a conversion task."""
+        with self._busy_lock:
+            if self._busy:
+                logger.info("Hotkey ignored: conversion already in progress")
+                return
+            # Also check for any running tasks started from other sources
+            for t in self._tm.list_tasks(limit=50):
+                if t.status == TaskStatus.RUNNING:
+                    logger.info("Hotkey ignored: another task is already running")
+                    return
+            self._busy = True
+
+        _add_hotkey_event("Hotkey triggered, grabbing clipboard...")
+        task_id = None
+
         try:
             img = ImageGrab.grabclipboard()
             if img is None:
+                _add_hotkey_event("Clipboard contains no image")
                 logger.info("Hotkey triggered but clipboard contains no image")
                 return
-        except Exception as exc:
-            logger.error("Failed to grab clipboard image: %s", exc)
-            return
 
-        try:
             cfg = self._sm.load()
 
             # Determine save directory
@@ -179,6 +232,7 @@ class HotkeyListener:
             filepath = os.path.join(save_dir, filename)
             img.save(filepath, "PNG")
             logger.info("Clipboard image saved: %s", filepath)
+            _add_hotkey_event(f"Clipboard image saved: {filename}")
 
             # Determine output directory
             out_dir = cfg.get("defaults", {}).get("output_path", "")
@@ -215,9 +269,22 @@ class HotkeyListener:
             self._tm.set_total(task_id, len(image_files))
             self._tm.set_status(task_id, TaskStatus.RUNNING)
 
+            # Create processed subfolder so already-processed images are
+            # excluded from future hotkey conversions.
+            ts_proc = datetime.now().strftime("%Y%m%d_%H%M%S")
+            processed_dir = os.path.join(save_dir, f"_processed_{ts_proc}")
+            os.makedirs(processed_dir, exist_ok=True)
+
             # Run OCR
             def on_progress(completed, total):
                 self._tm.update_progress(task_id, completed)
+
+            def on_image_done(img_path):
+                dest = os.path.join(processed_dir, os.path.basename(img_path))
+                try:
+                    shutil.move(img_path, dest)
+                except OSError:
+                    pass
 
             results, combined = process_all_images(
                 input_path=save_dir,
@@ -226,6 +293,7 @@ class HotkeyListener:
                 format=fmt,
                 model_config=model_cfg,
                 progress_callback=on_progress,
+                on_image_done=on_image_done,
             )
             self._tm.complete_task(task_id, results, combined)
 
@@ -244,7 +312,11 @@ class HotkeyListener:
 
         except Exception as exc:
             logger.error("Hotkey conversion failed: %s", exc, exc_info=True)
-            try:
-                self._tm.fail_task(task_id, str(exc))
-            except Exception:
-                pass
+            if task_id:
+                try:
+                    self._tm.fail_task(task_id, str(exc))
+                except Exception:
+                    pass
+        finally:
+            with self._busy_lock:
+                self._busy = False

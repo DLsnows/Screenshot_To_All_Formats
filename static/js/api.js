@@ -264,6 +264,18 @@ const api = (() => {
     }
 
     /* ------------------------------------------------------------------ */
+    /*  Clipboard API                                                     */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Capture an image from the system clipboard and save it to the server.
+     * @returns {Promise<{ path:string, filename:string, error:string }>}
+     */
+    async function captureClipboard() {
+        return json("/clipboard/capture", { method: "POST" });
+    }
+
+    /* ------------------------------------------------------------------ */
     /*  Public API                                                        */
     /* ------------------------------------------------------------------ */
 
@@ -285,6 +297,9 @@ const api = (() => {
 
         // Upload
         uploadFiles,
+
+        // Clipboard
+        captureClipboard,
 
         // Low-level (for custom endpoints)
         request,
