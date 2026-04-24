@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from threading import Lock
 
@@ -36,8 +37,14 @@ class SettingsManager:
     """Manages user settings persisted in config.json."""
 
     def __init__(self, config_path: str | None = None):
-        project_root = Path(__file__).resolve().parent.parent
-        self.config_path = Path(config_path) if config_path else project_root / "config.json"
+        if config_path:
+            self.config_path = Path(config_path)
+        elif getattr(sys, "frozen", False):
+            # PyInstaller frozen — place config.json alongside the .exe
+            self.config_path = Path(sys.executable).parent / "config.json"
+        else:
+            project_root = Path(__file__).resolve().parent.parent
+            self.config_path = project_root / "config.json"
         self._lock = Lock()
 
     # ------------------------------------------------------------------
