@@ -221,19 +221,3 @@ pip install -r Screenshot_To_All_Formats/requirements.txt
 ### 前端架构
 
 纯原生 HTML/CSS/JS，零框架依赖。使用哈希路由（`#main` / `#settings`）切换视图，`data-i18n` 属性模式实现中英文切换。
-
-## Tests
-
-```bash
-# 安装测试依赖
-python -m pip install httpx pytest
-
-# 启动服务后，在另一个终端运行测试
-python -m pytest Screenshot_To_All_Formats/tests/test_smoke.py -v
-```
-
-测试脚本也支持自动启动服务器模式，详情见 `tests/test_smoke.py`。
-
-## License
-
-[MIT](LICENSE)
